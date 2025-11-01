@@ -1,56 +1,22 @@
-use std::sync::RwLock;
-use std::sync::{OnceLock, RwLockReadGuard, RwLockWriteGuard};
-
-use ash::{Entry, Instance, vk};
-
 use std::ffi::{CStr, CString, c_void};
 
-type ContextReadGuard = RwLockReadGuard<'static, Context>;
-type ContextWriteGuard = RwLockWriteGuard<'static, Context>;
+use ash::vk;
+use raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
-struct DebugObjects {
-    debug_utils: ash::ext::debug_utils::Instance,
-    debug_messenger: vk::DebugUtilsMessengerEXT,
+use crate::ContextInfo;
+
+pub(crate) struct DebugObjects {
+    pub(crate) debug_utils: ash::ext::debug_utils::Instance,
+    pub(crate) debug_messenger: vk::DebugUtilsMessengerEXT,
 }
 
-pub struct Context {
-    entry: Entry,
-    instance: Instance,
-    surface: vk::SurfaceKHR,
-    debug_objs: Option<DebugObjects>,
+pub(crate) struct Instance {
+    _entry: ash::Entry,
+    pub(crate) instance: ash::Instance,
+    pub(crate) debug_objs: Option<DebugObjects>,
 }
 
-#[repr(u32)]
-#[derive(Copy, Clone)]
-pub enum ApiVersion {
-    V1_0 = vk::API_VERSION_1_0,
-    V1_1 = vk::API_VERSION_1_1,
-    V1_2 = vk::API_VERSION_1_2,
-    V1_3 = vk::API_VERSION_1_3,
-}
-
-#[derive(utils::Paramters)]
-pub struct ContextInfo {
-    app_name: CString,
-    engine_name: CString,
-    version: ApiVersion,
-    debugging: bool,
-}
-
-impl Default for ContextInfo {
-    fn default() -> Self {
-        Self {
-            app_name: CString::from(c"Vulkan App"),
-            engine_name: CString::from(c"Engine"),
-            version: ApiVersion::V1_0,
-            debugging: false,
-        }
-    }
-}
-
-static CONTEXT: OnceLock<RwLock<Context>> = OnceLock::new();
-
-impl Context {
+impl Instance {
     const VALIDATION_LAYER: &'static CStr = &c"VK_LAYER_KHRONOS_validation";
 
     unsafe extern "system" fn debug_callback(
@@ -66,8 +32,22 @@ impl Context {
         vk::FALSE
     }
 
-    fn create_instance(entry: &Entry, info: &ContextInfo) -> Instance {
-        let mut required_instance_extensions: Vec<_> = vec![];
+    pub(crate) fn create(info: &ContextInfo) -> Self {
+        let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan entry") };
+
+        let mut required_instance_extensions: Vec<&CStr> = vec![];
+
+        if let Some(ref window) = info.window {
+            let raw_display_handle: RawDisplayHandle = window.display_handle().unwrap().into();
+
+            let mut surface_extenstions =
+                ash_window::enumerate_required_extensions(raw_display_handle)
+                    .expect("Failed to enumerate surface extensions")
+                    .into_iter()
+                    .map(|&raw| unsafe { CStr::from_ptr(raw) })
+                    .collect();
+            required_instance_extensions.append(&mut surface_extenstions);
+        }
 
         if info.debugging {
             let layers = unsafe { entry.enumerate_instance_layer_properties().unwrap() }
@@ -89,6 +69,8 @@ impl Context {
                     Some(CString::from(ext_prop.extension_name_as_c_str().ok()?))
                 })
                 .collect::<Vec<_>>();
+
+        dbg!(&required_instance_extensions);
 
         for ext in required_instance_extensions.iter() {
             if !instance_extensions.contains(&CString::from(*ext)) {
@@ -131,14 +113,26 @@ impl Context {
             instance_info = instance_info.push_next(&mut debug_messenger_info);
         }
 
-        unsafe {
+        let instance = unsafe {
             entry
                 .create_instance(&instance_info, None)
                 .expect("Failed to create VkInstance")
+        };
+
+        let debug_objs = if info.debugging {
+            Some(Self::create_debug_utils(&entry, &instance))
+        } else {
+            None
+        };
+
+        Self {
+            _entry: entry,
+            instance,
+            debug_objs,
         }
     }
 
-    fn create_debug_utils(entry: &Entry, instance: &Instance) -> DebugObjects {
+    fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance) -> DebugObjects {
         use vk::DebugUtilsMessageSeverityFlagsEXT as Severity;
         use vk::DebugUtilsMessageTypeFlagsEXT as Type;
 
@@ -158,90 +152,11 @@ impl Context {
             debug_messenger,
         }
     }
-
-    pub fn init(info: &ContextInfo) {
-        let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan entry") };
-
-        let instance = Self::create_instance(&entry, info);
-
-        let debug_objs = if info.debugging {
-            Some(Self::create_debug_utils(&entry, &instance))
-        } else {
-            None
-        };
-
-        let physical_devices = unsafe { instance.enumerate_physical_devices().unwrap() };
-
-        for physical_device in physical_devices {
-            let mut props = vk::PhysicalDeviceProperties2::default();
-            let mut features = vk::PhysicalDeviceFeatures2::default();
-
-            unsafe {
-                instance.get_physical_device_properties2(physical_device, &mut props);
-                instance.get_physical_device_features2(physical_device, &mut features);
-            }
-
-            println!(
-                "device: {}",
-                props
-                    .properties
-                    .device_name_as_c_str()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-            );
-        }
-
-        if let Err(_) = CONTEXT.set(RwLock::new(Context {
-            entry,
-            instance,
-            surface: vk::SurfaceKHR::null(),
-            debug_objs,
-        })) {
-            panic!("Failed to initialize Vulkan context");
-        }
-    }
-
-    pub fn get() -> ContextReadGuard {
-        CONTEXT
-            .get()
-            .expect("Vulkan context is not initialized")
-            .read()
-            .unwrap()
-    }
-
-    pub fn try_get() -> Option<ContextReadGuard> {
-        CONTEXT.get()?.read().ok()
-    }
-
-    pub fn get_mut() -> ContextWriteGuard {
-        CONTEXT
-            .get()
-            .expect("Vulkan context is not initialized")
-            .write()
-            .unwrap()
-    }
-
-    pub fn try_get_mut() -> Option<ContextWriteGuard> {
-        CONTEXT.get()?.write().ok()
-    }
-
-    pub fn entry(&self) -> &Entry {
-        &self.entry
-    }
-
-    pub fn instance(&self) -> &Instance {
-        &self.instance
-    }
-
-    pub fn surface(&self) -> vk::SurfaceKHR {
-        self.surface
-    }
 }
 
-impl Drop for Context {
+impl Drop for Instance {
     fn drop(&mut self) {
-        println!("dropping the context");
+        println!("dropping the instance");
         unsafe {
             if let Some(DebugObjects {
                 ref debug_utils,

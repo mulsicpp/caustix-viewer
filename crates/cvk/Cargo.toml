@@ -6,5 +6,7 @@ edition = "2024"
 [dependencies]
 ash = "0.38.0"
 winit = "0.30.12"
+ash-window = "0.13.0"
 
 utils = { path = "../utils" }
+raw-window-handle = "0.6.2"
