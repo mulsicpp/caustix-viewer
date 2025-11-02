@@ -1,4 +1,8 @@
 
+pub mod app;
+
+pub use app::*;
+
 fn main() {
-    caustix::App::run();
+    App::run();
 }

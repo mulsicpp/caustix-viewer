@@ -56,6 +56,8 @@ impl App {
         };
 
         event_loop.run_app(&mut app).unwrap();
+
+        cvk::Context::destroy();
     }
 }
 

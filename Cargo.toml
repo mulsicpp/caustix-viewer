@@ -1,9 +1,20 @@
 [package]
-name = "caustix"
+name = "caustix-viewer"
 version = "0.1.0"
 edition = "2024"
+authors = ["Christian Mulser"]
+license = "GPL-3.0"
 
 [dependencies]
-winit = "0.30.12"
+winit = { workspace = true }
 cvk = { path = "crates/cvk" }
 utils = { path = "crates/utils" }
+
+[workspace]
+members = [
+    ".",
+    "crates/*"
+]
+
+[workspace.dependencies]
+winit = "0.30.12"

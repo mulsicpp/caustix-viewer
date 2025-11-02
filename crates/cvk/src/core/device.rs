@@ -1,13 +1,13 @@
 use ash::vk::{self, Handle};
 
-use crate::{ContextInfo, core::instance::Instance};
+use crate::core::instance::Instance;
 
-pub(crate) struct Device {
-    pub(crate) _physical_device: vk::PhysicalDevice,
-    pub(crate) _device: ash::Device,
+pub struct Device {
+    pub _physical_device: vk::PhysicalDevice,
+    pub _device: ash::Device,
 
-    pub(crate) _main_queue: vk::Queue,
-    pub(crate) _present_queue: vk::Queue,
+    pub _main_queue: vk::Queue,
+    pub _present_queue: vk::Queue,
 }
 
 impl Device {
@@ -55,7 +55,7 @@ impl Device {
         (vk::PhysicalDevice::null(), u32::MAX)
     }
 
-    pub(crate) fn create(instance: &Instance, _info: &ContextInfo) -> Self {
+    pub fn create(instance: &Instance) -> Self {
         let (physical_device, main_queue_idx) = Self::select_physical_device(instance);
 
         if physical_device.is_null() {
@@ -86,6 +86,15 @@ impl Device {
             _device: device,
             _main_queue: vk::Queue::null(),
             _present_queue: vk::Queue::null(),
+        }
+    }
+}
+
+impl Drop for Device {
+    fn drop(&mut self) {
+        println!("dropping the device");
+        unsafe {
+            self._device.destroy_device(None);
         }
     }
 }

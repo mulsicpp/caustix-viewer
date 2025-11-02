@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 ash = "0.38.0"
-winit = "0.30.12"
+winit = { workspace = true }
 ash-window = "0.13.0"
+parking_lot = "0.12.5"
 
 utils = { path = "../utils" }
 raw-window-handle = "0.6.2"
