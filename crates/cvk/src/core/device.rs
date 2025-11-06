@@ -18,6 +18,8 @@ pub struct Device {
     pub main_queue: Queue,
     pub present_queue: Queue,
 
+    pub command_pool: vk::CommandPool,
+
     pub extensions: DeviceExtensions,
 }
 
@@ -181,11 +183,19 @@ impl Device {
                         .then(|| ash::khr::swapchain::Device::new(&instance.instance, &device)),
                 };
 
+                let command_pool_info = vk::CommandPoolCreateInfo::default()
+                    .queue_family_index(main_idx)
+                    .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
+
+                let command_pool = unsafe { device.create_command_pool(&command_pool_info, None) }
+                    .expect("Failed to create command pool");
+
                 return Self {
                     physical_device,
                     device,
                     main_queue,
                     present_queue,
+                    command_pool,
                     extensions,
                 };
             }
