@@ -1,9 +1,7 @@
 mod device;
 mod instance;
 pub mod context;
+pub mod handle;
 
 pub use context::*;
-
-pub trait VkHandle<T> {
-    fn handle(&self) -> T;
-}
+pub use handle::*;

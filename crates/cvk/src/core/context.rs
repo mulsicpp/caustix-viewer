@@ -15,6 +15,7 @@ type ContextReadGuard = MappedRwLockReadGuard<'static, Context>;
 type ContextWriteGuard = MappedRwLockWriteGuard<'static, Context>;
 
 pub struct Context {
+    allocator: vk_mem::Allocator,
     device: Device,
     instance: Instance,
 }
@@ -57,7 +58,12 @@ impl Context {
 
         let device = Device::create(&instance);
 
+        let allocator_info = vk_mem::AllocatorCreateInfo::new(&instance.instance, &device.device, device.physical_device);
+
+        let allocator = unsafe { vk_mem::Allocator::new(allocator_info) }.expect("Failed to create the allocator");
+
         *CONTEXT.write() = Some(Context {
+            allocator,
             device,
             instance,
         });

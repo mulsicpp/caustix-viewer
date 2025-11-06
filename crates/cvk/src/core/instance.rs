@@ -4,7 +4,7 @@ use ash::vk;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::window::Window;
 
-use crate::ContextInfo;
+use crate::{ContextInfo, VkHandle};
 
 pub struct Instance {
     pub(crate) debug_utils: Option<DebugUtils>,
@@ -202,5 +202,14 @@ impl Surface {
             },
             fns: ash::khr::surface::Instance::new(&entry, &instance),
         }
+    }
+}
+
+
+impl VkHandle for Surface {
+    type HandleType = vk::SurfaceKHR;
+
+    fn handle(&self) -> Self::HandleType {
+        self.handle
     }
 }
