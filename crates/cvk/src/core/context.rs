@@ -14,6 +14,8 @@ use std::ffi::CString;
 type ContextReadGuard = MappedRwLockReadGuard<'static, Context>;
 type ContextWriteGuard = MappedRwLockWriteGuard<'static, Context>;
 
+type DeviceReadGuard = MappedRwLockReadGuard<'static, ash::Device>;
+
 pub struct Context {
     allocator: vk_mem::Allocator,
     device: Device,
@@ -54,9 +56,9 @@ static CONTEXT: RwLock<Option<Context>> = RwLock::new(None);
 
 impl Context {
     pub fn init(info: ContextInfo) {
-        let instance = Instance::create(info);
+        let instance = Instance::new(info);
 
-        let device = Device::create(&instance);
+        let device = Device::new(&instance);
 
         let allocator_info = vk_mem::AllocatorCreateInfo::new(&instance.instance, &device.device, device.physical_device);
 
@@ -91,6 +93,12 @@ impl Context {
 
     pub fn try_get_mut() -> Option<ContextWriteGuard> {
         RwLockWriteGuard::try_map(CONTEXT.write(), |context| context.as_mut()).ok()
+    }
+    
+    pub fn get_device() -> DeviceReadGuard {
+        MappedRwLockReadGuard::map(Self::get(), |context| {
+            &context.device.device
+        })
     }
 
     pub fn instance(&self) -> &Instance {

@@ -4,7 +4,7 @@ use ash::vk;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::window::Window;
 
-use crate::{ContextInfo, VkHandle};
+use crate::ContextInfo;
 
 pub struct Instance {
     pub debug_utils: Option<DebugUtils>,
@@ -29,7 +29,7 @@ impl Instance {
         vk::FALSE
     }
 
-    pub fn create(info: ContextInfo) -> Self {
+    pub fn new(info: ContextInfo) -> Self {
         let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan entry") };
 
         let layer_names = unsafe { entry.enumerate_instance_layer_properties().unwrap() }
@@ -117,13 +117,13 @@ impl Instance {
         };
 
         let debug_utils = if let Some(messenger_info) = debug_messenger_info {
-            Some(DebugUtils::create(&entry, &instance, &messenger_info))
+            Some(DebugUtils::new(&entry, &instance, &messenger_info))
         } else {
             None
         };
 
         let surface = if let Some(window) = info.window {
-            Some(Surface::create(&entry, &instance, window))
+            Some(Surface::new(&entry, &instance, window))
         } else {
             None
         };
@@ -163,7 +163,7 @@ pub struct DebugUtils {
 }
 
 impl DebugUtils {
-    fn create(
+    fn new(
         entry: &ash::Entry,
         instance: &ash::Instance,
         messenger_info: &vk::DebugUtilsMessengerCreateInfoEXT,
@@ -177,14 +177,15 @@ impl DebugUtils {
     }
 }
 
+#[derive(cvk_macros::VkHandle)]
 pub struct Surface {
-    pub(crate) window: Window,
     pub(crate) handle: vk::SurfaceKHR,
+    pub(crate) window: Window,
     pub(crate) fns: ash::khr::surface::Instance,
 }
 
 impl Surface {
-    fn create(entry: &ash::Entry, instance: &ash::Instance, window: Window) -> Self {
+    fn new(entry: &ash::Entry, instance: &ash::Instance, window: Window) -> Self {
         let display_handle = window
             .display_handle()
             .expect("Failed to acquire display handle")
@@ -195,21 +196,12 @@ impl Surface {
             .as_raw();
 
         Self {
-            window,
             handle: unsafe {
                 ash_window::create_surface(entry, instance, display_handle, window_handle, None)
                     .expect("Failed to create surface")
             },
+            window,
             fns: ash::khr::surface::Instance::new(&entry, &instance),
         }
-    }
-}
-
-
-impl VkHandle for Surface {
-    type HandleType = vk::SurfaceKHR;
-
-    fn handle(&self) -> Self::HandleType {
-        self.handle
     }
 }

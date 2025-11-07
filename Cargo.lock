@@ -324,11 +324,21 @@ dependencies = [
  "ash",
  "ash-window",
  "bitflags 2.10.0",
+ "cvk-macros",
  "parking_lot",
  "raw-window-handle",
  "utils",
  "vk-mem",
  "winit",
+]
+
+[[package]]
+name = "cvk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -4,6 +4,8 @@ use quote::quote;
 pub fn derive_parameters(item: syn::ItemStruct) -> TokenStream {
     let item_ident = item.ident;
 
+    let (impl_generics, ty_generics, where_clause) = item.generics.split_for_impl();
+
     let mut field_functions: Vec<TokenStream> = vec![];
     
     'outer: for field in item.fields {
@@ -22,7 +24,7 @@ pub fn derive_parameters(item: syn::ItemStruct) -> TokenStream {
         });
     }
     quote! { 
-        impl #item_ident {
+        impl #impl_generics #item_ident #ty_generics #where_clause {
             #(#field_functions)*
         }
     }

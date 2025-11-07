@@ -2,10 +2,7 @@ use std::ffi::{CStr, CString};
 
 use ash::vk;
 
-use crate::{
-    VkHandle,
-    core::instance::{Instance, Surface},
-};
+use crate::core::instance::{Instance, Surface};
 
 pub struct DeviceExtensions {
     pub swapchain: Option<ash::khr::swapchain::Device>,
@@ -111,7 +108,7 @@ impl Device {
         }
     }
 
-    pub fn create(instance: &Instance) -> Self {
+    pub fn new(instance: &Instance) -> Self {
         let mut required_extensions = vec![];
 
         if instance.surface.is_some() {
@@ -208,20 +205,14 @@ impl Drop for Device {
     fn drop(&mut self) {
         println!("dropping the device");
         unsafe {
+            self.device.destroy_command_pool(self.command_pool, None);
             self.device.destroy_device(None);
         }
     }
 }
 
+#[derive(cvk_macros::VkHandle)]
 pub struct Queue {
     pub handle: vk::Queue,
     pub family_idx: u32,
-}
-
-impl VkHandle for Queue {
-    type HandleType = vk::Queue;
-
-    fn handle(&self) -> Self::HandleType {
-        self.handle
-    }
 }

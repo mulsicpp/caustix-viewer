@@ -6,12 +6,13 @@ use std::{
 use ash::vk;
 use vk_mem::Alloc;
 
-use crate::{Context, MemoryUsage, VkHandle};
+use crate::{Context, MemoryUsage};
 
 use utils::{Build, Buildable};
 
 pub type BufferUsage = vk::BufferUsageFlags;
 
+#[derive(cvk_macros::VkHandle)]
 pub struct Buffer {
     handle: vk::Buffer,
     allocation: vk_mem::Allocation,
@@ -72,14 +73,6 @@ impl Drop for Buffer {
                 .allocator()
                 .destroy_buffer(self.handle, &mut self.allocation);
         }
-    }
-}
-
-impl VkHandle for Buffer {
-    type HandleType = vk::Buffer;
-
-    fn handle(&self) -> Self::HandleType {
-        self.handle
     }
 }
 
