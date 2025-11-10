@@ -141,6 +141,7 @@ pub struct BufferBuilder<'a> {
     align: vk::DeviceSize,
     #[no_param]
     data: Option<utils::ScopedPtr<'a, u8>>,
+    #[flag]
     usage: BufferUsage,
     memory_usage: MemoryUsage,
     mapped_data: bool,

@@ -2,6 +2,7 @@ use ash::vk;
 
 use crate::{Context, Fence, VkHandle};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandBufferUses {
     Single,
     Multi,
@@ -53,6 +54,7 @@ impl CommandBuffer {
 
         let info = vk::CommandBufferBeginInfo::default().flags(flags);
 
+        self.fence.wait();
         unsafe { Context::get_device().begin_command_buffer(self.handle, &info) }
             .expect("Failed to start recording of command buffer");
 
@@ -83,7 +85,7 @@ impl Drop for CommandBuffer {
 pub struct Recording(CommandBuffer);
 
 impl Recording {
-    pub fn submit(self) -> CommandBuffer {
+    pub fn submit(mut self) -> CommandBuffer {
         unsafe { Context::get_device().end_command_buffer(self.0.handle) }
             .expect("Failed to end recording of command buffer");
 
@@ -91,6 +93,9 @@ impl Recording {
 
         let submit_info = vk::SubmitInfo::default().command_buffers(handles.as_slice());
 
+        if self.0.uses == CommandBufferUses::Single {
+            self.0.usable = false;
+        }
         self.0.fence.reset();
 
         unsafe { Context::get_device().queue_submit(Context::get().device().main_queue.handle(), &[submit_info], self.0.fence.handle()) }

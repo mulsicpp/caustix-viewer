@@ -38,31 +38,25 @@ impl App {
 
         let b1 = cvk::Buffer::builder()
             .staging_buffer()
-            .data_slice(c"blabla".to_bytes_with_nul())
+            .data_slice(&[1, 2, 3])
             .build();
 
-        let b1_str = CStr::from_bytes_with_nul(b1.mapped_slice::<u8>().unwrap())
-            .unwrap()
-            .to_str()
-            .unwrap();
-        dbg!(&b1_str);
+        let b1_slice = b1.mapped_slice::<u32>().unwrap();
+        println!("{:?}", b1_slice);
 
         let mut b2 = cvk::Buffer::builder()
             .staging_buffer()
             .usage(cvk::BufferUsage::TRANSFER_SRC | cvk::BufferUsage::TRANSFER_DST)
-            .data_slice(c"lollol".to_bytes_with_nul())
+            .data_slice(&[4, 5, 6])
             .build();
 
-        let recording = cvk::CommandBuffer::new(cvk::CommandBufferUses::Single).start_recording();
-        recording.copy_buffer_regions(&b1, &mut b2, &[BufferCopyRegion::default().size(3u64)]);
-        recording.copy_buffer(&b1, &mut b2);
-        recording.submit();
+        cvk::CommandBuffer::run_single_use(|recording| {
+            recording.copy_buffer_regions(&b1, &mut b2, &[BufferCopyRegion::default().size(3u64)]);
+            // recording.copy_buffer(&b1, &mut b2);
+        });
 
-        let b2_str = CStr::from_bytes_with_nul(b2.mapped_slice::<u8>().unwrap())
-            .unwrap()
-            .to_str()
-            .unwrap();
-        dbg!(&b2_str);
+        let b2_slice = b2.mapped_slice::<u8>().unwrap();
+        println!("{:?}", b2_slice);
     }
 
     fn redraw(&mut self) {}
