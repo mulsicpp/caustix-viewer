@@ -6,7 +6,7 @@ pub trait Build {
 }
 
 pub trait Buildable: Sized {
-    type Builder<'a>: Default + Build<Target = Self>;
+    type Builder<'a>: Default + Build<Target = Self> where Self: 'a;
 
     fn builder<'a>() -> Self::Builder<'a> {
         Self::Builder::default()

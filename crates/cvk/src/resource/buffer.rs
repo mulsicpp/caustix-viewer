@@ -8,118 +8,42 @@ use vk_mem::Alloc;
 
 use crate::{Context, MemoryUsage, Recording, VkHandle};
 
-use utils::{Build, Buildable};
+use utils::{AnyRange, Build, Buildable, ToRegion};
+
+type DeviceRegion = utils::Region<vk::DeviceSize>;
 
 pub type BufferUsage = vk::BufferUsageFlags;
 
 #[derive(cvk_macros::VkHandle)]
-pub struct Buffer {
+pub struct Buffer<T: Copy> {
     handle: vk::Buffer,
     allocation: vk_mem::Allocation,
 
-    size: vk::DeviceSize,
-    align: vk::DeviceSize,
-    mapped_data: Option<NonNull<u8>>,
+    count: vk::DeviceSize,
+    mapped_data: Option<NonNull<T>>,
 }
 
-impl Buffer {
+impl<T: Copy> Buffer<T> {
+    pub fn count(&self) -> vk::DeviceSize {
+        self.count
+    }
+
     pub fn size(&self) -> vk::DeviceSize {
-        self.size
+        self.count * size_of::<T>() as vk::DeviceSize
     }
 
-    pub fn align(&self) -> vk::DeviceSize {
-        self.align
+    pub fn mapped(&self) -> Option<&[T]> {
+        Some(unsafe { &*slice_from_raw_parts(self.mapped_data?.as_ptr(), self.count as usize) })
     }
 
-    pub fn mapped<T>(&self) -> Option<&T> {
-        if size_of::<T>() <= self.size as usize {
-            unsafe { Some(&*(self.mapped_data?.as_ptr() as *mut T)) }
-        } else {
-            None
-        }
-    }
-
-    pub fn mapped_mut<T>(&mut self) -> Option<&mut T> {
-        if size_of::<T>() <= self.size as usize {
-            unsafe { Some(&mut *(self.mapped_data?.as_ptr() as *mut T)) }
-        } else {
-            None
-        }
-    }
-
-    pub fn mapped_slice<T>(&self) -> Option<&[T]> {
+    pub fn mapped_mut(&mut self) -> Option<&mut [T]> {
         Some(unsafe {
-            &*slice_from_raw_parts(
-                self.mapped_data?.as_ptr() as *const T,
-                self.size as usize / size_of::<T>(),
-            )
-        })
-    }
-
-    pub fn mapped_slice_mut<T>(&mut self) -> Option<&mut [T]> {
-        Some(unsafe {
-            &mut *slice_from_raw_parts_mut(
-                self.mapped_data?.as_ptr() as *mut T,
-                self.size as usize / size_of::<T>(),
-            )
+            &mut *slice_from_raw_parts_mut(self.mapped_data?.as_ptr(), self.count as usize)
         })
     }
 }
 
-#[derive(utils::Paramters, Default)]
-pub struct BufferCopyRegion {
-    pub src_offset: vk::DeviceSize,
-    pub dst_offset: vk::DeviceSize,
-    pub size: vk::DeviceSize,
-}
-
-impl BufferCopyRegion {
-    fn as_raw(&self) -> vk::BufferCopy {
-        let Self {
-            src_offset,
-            dst_offset,
-            size,
-        } = *self;
-        vk::BufferCopy {
-            src_offset,
-            dst_offset,
-            size,
-        }
-    }
-}
-
-impl Recording {
-    pub fn copy_buffer(&self, src: &Buffer, dst: &mut Buffer) {
-        let raw_region = vk::BufferCopy::default().size(src.size.min(dst.size));
-        unsafe {
-            Context::get_device().cmd_copy_buffer(
-                self.handle(),
-                src.handle,
-                dst.handle,
-                &[raw_region],
-            );
-        }
-    }
-
-    pub fn copy_buffer_regions(
-        &self,
-        src: &Buffer,
-        dst: &mut Buffer,
-        copy_regions: &[BufferCopyRegion],
-    ) {
-        let raw_regions: Vec<_> = copy_regions.iter().map(|region| region.as_raw()).collect();
-        unsafe {
-            Context::get_device().cmd_copy_buffer(
-                self.handle(),
-                src.handle,
-                dst.handle,
-                &raw_regions,
-            );
-        }
-    }
-}
-
-impl Drop for Buffer {
+impl<T: Copy> Drop for Buffer<T> {
     fn drop(&mut self) {
         unsafe {
             Context::get()
@@ -129,64 +53,117 @@ impl Drop for Buffer {
     }
 }
 
-impl Buildable for Buffer {
-    type Builder<'a> = BufferBuilder<'a>;
+impl<T: Copy> Buildable for Buffer<T> {
+    type Builder<'a> = BufferBuilder<'a, T> where T: 'a;
 }
 
+
+
+pub struct BufferRegion<'a, T: Copy> {
+    buffer: &'a Buffer<T>,
+    region: DeviceRegion,
+}
+
+impl<'a, T: Copy> From<&'a Buffer<T>> for BufferRegion<'a, T> {
+    fn from(buffer: &'a Buffer<T>) -> Self {
+        BufferRegion {
+            buffer,
+            region: DeviceRegion::new(0, buffer.count),
+        }
+    }
+}
+
+impl Recording {
+    pub fn copy_buffer<'a, T: 'a + Copy>(
+        &'a self,
+        src: impl Into<BufferRegion<'a, T>>,
+        dst: impl Into<BufferRegion<'a, T>>,
+    ) {
+        let BufferRegion {
+            buffer: src_buffer,
+            region:
+                DeviceRegion {
+                    offset: src_offset,
+                    count: src_count,
+                },
+        } = src.into();
+        let BufferRegion {
+            buffer: dst_buffer,
+            region:
+                DeviceRegion {
+                    offset: dst_offset,
+                    count: dst_count,
+                },
+        } = dst.into();
+
+        let size = src_count.min(dst_count) * size_of::<T>() as vk::DeviceSize;
+
+        let raw_region = vk::BufferCopy::default()
+            .size(size)
+            .src_offset(src_offset * size_of::<T>() as vk::DeviceSize)
+            .dst_offset(dst_offset * size_of::<T>() as vk::DeviceSize);
+
+        unsafe {
+            Context::get_device().cmd_copy_buffer(
+                self.handle(),
+                src_buffer.handle,
+                dst_buffer.handle,
+                &[raw_region],
+            );
+        }
+    }
+
+    pub fn copy_buffer_regions<T: Copy>(
+        &self,
+        src_buffer: &Buffer<T>,
+        dst_buffer: &Buffer<T>,
+        regions: &[(AnyRange<vk::DeviceSize>, AnyRange<vk::DeviceSize>)],
+    ) {
+        let raw_regions: Vec<_> = regions
+            .iter()
+            .map(|(src, dst)| {
+                let src = src.clone().to_region(src_buffer.count);
+                let dst = dst.clone().to_region(dst_buffer.count);
+                vk::BufferCopy::default()
+                    .size(src.count.min(dst.count) * size_of::<T>() as vk::DeviceSize)
+                    .src_offset(src.offset * size_of::<T>() as vk::DeviceSize)
+                    .dst_offset(dst.offset * size_of::<T>() as vk::DeviceSize)
+            })
+            .collect();
+
+        unsafe {
+            Context::get_device().cmd_copy_buffer(
+                self.handle(),
+                src_buffer.handle,
+                dst_buffer.handle,
+                &raw_regions,
+            );
+        }
+    }
+}
+
+
+
 #[derive(Clone, Debug, utils::Paramters)]
-pub struct BufferBuilder<'a> {
+pub struct BufferBuilder<'a, T> {
     #[no_param]
-    size: NonZero<vk::DeviceSize>,
+    count: NonZero<vk::DeviceSize>,
     #[no_param]
-    align: vk::DeviceSize,
-    #[no_param]
-    data: Option<utils::ScopedPtr<'a, u8>>,
+    data: Option<&'a [T]>,
     #[flag]
     usage: BufferUsage,
     memory_usage: MemoryUsage,
     mapped_data: bool,
 }
 
-impl<'a> BufferBuilder<'a> {
-    pub fn size(mut self, size: impl Into<vk::DeviceSize>) -> Self {
-        self.size = NonZero::new(size.into()).expect("Buffer size needs to be greater than zero");
-        self.align = 1;
-        self.data = None;
+impl<'a, T> BufferBuilder<'a, T> {
+    pub fn count(mut self, size: impl Into<vk::DeviceSize>) -> Self {
+        self.count = NonZero::new(size.into()).expect("Buffer size needs to be greater than zero");
         self
     }
 
-    pub fn size_aligned(
-        mut self,
-        size: impl Into<vk::DeviceSize>,
-        align: impl Into<vk::DeviceSize>,
-    ) -> Self {
-        self.size = NonZero::new(size.into()).expect("Buffer size needs to be greater than zero");
-        self.align = align.into();
-        self.data = None;
-        self
-    }
-
-    pub fn count_of<T>(self, count: impl Into<vk::DeviceSize>) -> Self {
-        self.size_aligned(
-            count.into() * size_of::<T>() as vk::DeviceSize,
-            align_of::<T>() as vk::DeviceSize,
-        )
-    }
-
-    pub fn data_slice<T>(mut self, slice: &'a [T]) -> Self {
-        self = self.count_of::<T>(slice.len() as vk::DeviceSize);
-        self.data = slice
-            .first()
-            .and_then(|first| utils::ScopedPtr::new(first as *const T as *mut T as *mut u8));
-
-        self
-    }
-
-    pub fn data<T>(mut self, value: &T) -> Self {
-        self = self.count_of::<T>(1 as vk::DeviceSize);
-        self.data = Some(unsafe {
-            utils::ScopedPtr::new_unchecked(value as *const T as *mut T as *mut u8)
-        });
+    pub fn data(mut self, size: &'a [T]) -> Self {
+        self.data = Some(size.into());
         self
     }
 
@@ -197,11 +174,10 @@ impl<'a> BufferBuilder<'a> {
     }
 }
 
-impl Default for BufferBuilder<'_> {
+impl<T> Default for BufferBuilder<'_, T> {
     fn default() -> Self {
         Self {
-            align: 1,
-            size: unsafe { NonZero::new_unchecked(1) },
+            count: unsafe { NonZero::new_unchecked(1) },
             data: None,
             usage: BufferUsage::empty(),
             memory_usage: MemoryUsage::Auto,
@@ -210,18 +186,22 @@ impl Default for BufferBuilder<'_> {
     }
 }
 
-impl<'a> Build for BufferBuilder<'a> {
-    type Target = Buffer;
+impl<'a, T: Copy> Build for BufferBuilder<'a, T> {
+    type Target = Buffer<T>;
 
     fn build(&self) -> Self::Target {
+        let count = match self.data {
+            Some(data) => (data.len() as vk::DeviceSize).max(self.count.get()),
+            None => self.count.get(),
+        };
+
         let buffer_info = vk::BufferCreateInfo::default()
-            .size(self.size.get())
+            .size(count * size_of::<T>() as vk::DeviceSize)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .usage(self.usage);
 
         let flags = if self.mapped_data {
             vk_mem::AllocationCreateFlags::HOST_ACCESS_RANDOM |
-            //vk_mem::AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE |
             vk_mem::AllocationCreateFlags::MAPPED
         } else {
             vk_mem::AllocationCreateFlags::empty()
@@ -237,7 +217,7 @@ impl<'a> Build for BufferBuilder<'a> {
             Context::get().allocator().create_buffer_with_alignment(
                 &buffer_info,
                 &alloc_info,
-                self.align,
+                align_of::<T>() as vk::DeviceSize,
             )
         }
         .expect("Failed to create buffer");
@@ -246,7 +226,7 @@ impl<'a> Build for BufferBuilder<'a> {
             let mapped_data_ptr = Context::get()
                 .allocator()
                 .get_allocation_info(&allocation)
-                .mapped_data as *mut u8;
+                .mapped_data as *mut T;
 
             if !mapped_data_ptr.is_null() {
                 Some(unsafe { NonNull::new_unchecked(mapped_data_ptr) })
@@ -261,9 +241,9 @@ impl<'a> Build for BufferBuilder<'a> {
             if let Some(mapped_data) = mapped_data {
                 unsafe {
                     copy_nonoverlapping(
-                        data.as_ptr() as *const u8,
+                        data.as_ptr(),
                         mapped_data.as_ptr(),
-                        self.size.get() as usize,
+                        count as usize,
                     )
                 };
             }
@@ -273,8 +253,7 @@ impl<'a> Build for BufferBuilder<'a> {
             handle: buffer,
             allocation,
 
-            size: self.size.get(),
-            align: self.align,
+            count,
             mapped_data,
         }
     }

@@ -1,6 +1,5 @@
 use std::ffi::{CStr, CString};
 
-use cvk::BufferCopyRegion;
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -38,24 +37,32 @@ impl App {
 
         let b1 = cvk::Buffer::builder()
             .staging_buffer()
-            .data_slice(&[1, 2, 3])
+            .data(&[0, 1])
             .build();
 
-        let b1_slice = b1.mapped_slice::<u32>().unwrap();
+        let b1_slice = b1.mapped().unwrap();
         println!("{:?}", b1_slice);
 
-        let mut b2 = cvk::Buffer::builder()
+        let b2 = cvk::Buffer::builder()
             .staging_buffer()
             .usage(cvk::BufferUsage::TRANSFER_SRC | cvk::BufferUsage::TRANSFER_DST)
-            .data_slice(&[4, 5, 6])
+            .count(5u64)
             .build();
 
         cvk::CommandBuffer::run_single_use(|recording| {
-            recording.copy_buffer_regions(&b1, &mut b2, &[BufferCopyRegion::default().size(3u64)]);
-            // recording.copy_buffer(&b1, &mut b2);
+            recording.copy_buffer_regions(
+                &b1,
+                &b2,
+                &[
+                    ((0..).into(), (0..).into()),
+                    (0.into(), (2..).into()),
+                    ((0..).into(), (3..).into()),
+                ],
+            );
+            // recording.copy_buffer(&b1, &b2);
         });
 
-        let b2_slice = b2.mapped_slice::<u8>().unwrap();
+        let b2_slice = b2.mapped().unwrap();
         println!("{:?}", b2_slice);
     }
 
