@@ -68,18 +68,18 @@ pub trait BufferRegionLikeMut<T: Copy>: BufferRegionLike<T> {
     }
 }
 
-pub trait GetBufferRegion<'a, T: Copy>
+pub trait GetBufferRegion<T: Copy>
 where
     Self: Sized,
 {
-    fn region(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T>;
+    fn region<'a>(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> where Self: 'a;
 }
 
-pub trait GetBufferRegionMut<'a, T: Copy>
+pub trait GetBufferRegionMut<T: Copy>
 where
     Self: Sized,
 {
-    fn region_mut(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'a, T>;
+    fn region_mut<'a>(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'a, T> where Self: 'a;
 }
 
 // --------------------- Buffer ---------------------
@@ -162,8 +162,8 @@ impl<T: Copy> BufferRegionLikeMut<T> for &mut Buffer<T> {
     }
 }
 
-impl<'a, T: Copy> GetBufferRegion<'a, T> for &'a Buffer<T> {
-    fn region(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> {
+impl<'a, T: Copy> GetBufferRegion<T> for &'a Buffer<T> {
+    fn region<'b>(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'b, T> where 'a: 'b {
         BufferRegion {
             buffer: self,
             span: span.to_span(self.span()),
@@ -171,8 +171,8 @@ impl<'a, T: Copy> GetBufferRegion<'a, T> for &'a Buffer<T> {
     }
 }
 
-impl<'a, T: Copy> GetBufferRegionMut<'a, T> for &'a mut Buffer<T> {
-    fn region_mut(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'a, T> {
+impl<'a, T: Copy> GetBufferRegionMut<T> for &'a mut Buffer<T> {
+    fn region_mut<'b>(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'b, T> where 'a: 'b {
         BufferRegionMut {
             span: span.to_span(self.span()),
             buffer: self,
@@ -190,7 +190,7 @@ pub struct BufferRegion<'a, T: Copy> {
 
 impl<'a, T: Copy> BufferRegion<'a, T> {
     pub fn new(
-        buffer_region: impl GetBufferRegion<'a, T>,
+        buffer_region: impl GetBufferRegion<T> + 'a,
         span: impl ToSpan<vk::DeviceSize>,
     ) -> Self {
         buffer_region.region(span)
@@ -217,7 +217,7 @@ impl<'a, T: Copy> BufferRegion<'a, T> {
     }
 
     pub fn region(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> {
-        <Self as GetBufferRegion<'a, T>>::region(self, span)
+        <Self as GetBufferRegion<T>>::region(self, span)
     }
 }
 
@@ -231,8 +231,8 @@ impl<T: Copy> BufferRegionLike<T> for BufferRegion<'_, T> {
     }
 }
 
-impl<'a, T: Copy> GetBufferRegion<'a, T> for BufferRegion<'a, T> {
-    fn region(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> {
+impl<'a, T: Copy> GetBufferRegion<T> for BufferRegion<'a, T> {
+    fn region<'b>(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'b, T> where 'a: 'b {
         self.span = span.to_span(self.span());
         self
     }
@@ -255,7 +255,7 @@ pub struct BufferRegionMut<'a, T: Copy> {
 
 impl<'a, T: Copy> BufferRegionMut<'a, T> {
     pub fn new(
-        buffer_region: impl GetBufferRegionMut<'a, T>,
+        buffer_region: impl GetBufferRegionMut<T> + 'a,
         span: impl ToSpan<vk::DeviceSize>,
     ) -> Self {
         buffer_region.region_mut(span)
@@ -286,11 +286,11 @@ impl<'a, T: Copy> BufferRegionMut<'a, T> {
     }
 
     pub fn region(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> {
-        <Self as GetBufferRegion<'a, T>>::region(self, span)
+        <Self as GetBufferRegion<T>>::region(self, span)
     }
 
     pub fn region_mut(self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'a, T> {
-        <Self as GetBufferRegionMut<'a, T>>::region_mut(self, span)
+        <Self as GetBufferRegionMut<T>>::region_mut(self, span)
     }
 }
 
@@ -310,16 +310,16 @@ impl<T: Copy> BufferRegionLikeMut<T> for BufferRegionMut<'_, T> {
     }
 }
 
-impl<'a, T: Copy> GetBufferRegion<'a, T> for BufferRegionMut<'a, T> {
-    fn region(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'a, T> {
+impl<'a, T: Copy> GetBufferRegion<T> for BufferRegionMut<'a, T> {
+    fn region<'b>(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegion<'b, T> where 'a: 'b {
         self.span = span.to_span(self.span());
         let Self { buffer, span } = self;
         BufferRegion { buffer, span }
     }
 }
 
-impl<'a, T: Copy> GetBufferRegionMut<'a, T> for BufferRegionMut<'a, T> {
-    fn region_mut(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'a, T> {
+impl<'a, T: Copy> GetBufferRegionMut<T> for BufferRegionMut<'a, T> {
+    fn region_mut<'b>(mut self, span: impl ToSpan<vk::DeviceSize>) -> BufferRegionMut<'b, T> where 'a: 'b {
         self.span = span.to_span(self.span());
         self
     }
