@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 
+use cvk::BufferUsage;
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -36,43 +37,23 @@ impl App {
         cvk::Context::init(context_info);
 
         let b1 = cvk::Buffer::builder()
-            .staging_buffer()
-            .data(&[0, 1])
+            .data(&[5, 2])
+            .usage(BufferUsage::TRANSFER_SRC | BufferUsage::TRANSFER_DST)
+            .memory_usage(cvk::MemoryUsage::PreferDevice)
             .build();
 
-        let b1_slice = b1.mapped().unwrap();
-        println!("{:?}", b1_slice);
-
-        let mut b2 = cvk::Buffer::builder()
+        let b2 = cvk::Buffer::<i32>::builder()
             .staging_buffer()
             .usage(cvk::BufferUsage::TRANSFER_SRC | cvk::BufferUsage::TRANSFER_DST)
-            .count(5u64)
+            .data(&[0, 1, 2, 3, 4])
             .build();
-
-        let b2_reg = b2.region(1..).region(1);
-
-        dbg!(&b2_reg);
-
-        cvk::CommandBuffer::run_single_use(|recording| {
-            recording.copy_buffer_regions(
-                &b1,
-                &b2,
-                &cvk::copy_ranges![(0.. => 0..), (0 => 2..), (0.. => 3..)],
-            );
-            // recording.copy_buffer(&b1, &b2);
-        });
 
         let b2_slice = b2.mapped().unwrap();
         println!("{:?}", b2_slice);
 
-        let b2_slice = b2.mapped_mut().unwrap();
-
-        for (i, el) in b2_slice.iter_mut().enumerate() {
-            *el = i;
-        }
-        println!("{:?}", b2_slice);
-
-        let b2_slice = b2.region(3..).mapped().unwrap();
+        cvk::CommandBuffer::run_single_use(|recording| {
+            recording.copy_buffer(&b1, &b2);
+        });
         println!("{:?}", b2_slice);
     }
 

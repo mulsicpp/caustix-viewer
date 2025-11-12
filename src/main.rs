@@ -1,7 +1,7 @@
 
 pub mod app;
-pub use app::*;
 
+pub use app::*;
 
 fn main() {
 

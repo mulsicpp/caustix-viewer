@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use ash::vk;
 
 use crate::{Context, Fence, VkHandle};
@@ -36,15 +38,15 @@ impl CommandBuffer {
         }
     }
 
-    pub fn run_single_use(recorder: impl FnOnce(&Recording)) {
-        let recording = Self::new(CommandBufferUses::Single).start_recording();
+    pub fn run_single_use<'a>(recorder: impl FnOnce(&mut Recording<'a>)) {
+        let mut recording = Self::new(CommandBufferUses::Single).start_recording();
 
-        recorder(&recording);
+        recorder(&mut recording);
 
         recording.submit().wait();
     }
 
-    pub fn start_recording(self) -> Recording {
+    pub fn start_recording<'a>(self) -> Recording<'a> {
         assert!(self.usable, "Command buffer is no longer usable");
 
         let flags = match self.uses {
@@ -58,15 +60,7 @@ impl CommandBuffer {
         unsafe { Context::get_device().begin_command_buffer(self.handle, &info) }
             .expect("Failed to start recording of command buffer");
 
-        Recording(self)
-    }
-
-    pub fn wait(&self) {
-        self.fence.wait();
-    }
-
-    pub fn wait_with_timeout(&self, timeout: u64) {
-        self.fence.wait_with_timeout(timeout);
+        Recording { cmd_buf: self, _marker: PhantomData::default() }
     }
 }
 
@@ -74,7 +68,7 @@ impl Drop for CommandBuffer {
     fn drop(&mut self) {
         println!("dropping cmd buf");
 
-        self.wait();
+        self.fence.wait();
         unsafe {
             Context::get_device()
                 .free_command_buffers(Context::get().device().command_pool, &[self.handle]);
@@ -82,33 +76,49 @@ impl Drop for CommandBuffer {
     }
 }
 
-pub struct Recording(CommandBuffer);
+pub struct Recording<'a> {
+    cmd_buf: CommandBuffer,
+    _marker: PhantomData<&'a ()>,
+}
 
-impl Recording {
-    pub fn submit(mut self) -> CommandBuffer {
-        unsafe { Context::get_device().end_command_buffer(self.0.handle) }
+impl<'a> Recording<'a> {
+    pub fn submit(mut self) -> SubmittedRecording<'a> {
+        unsafe { Context::get_device().end_command_buffer(self.cmd_buf.handle) }
             .expect("Failed to end recording of command buffer");
 
         let handles = [self.handle()];
 
         let submit_info = vk::SubmitInfo::default().command_buffers(handles.as_slice());
 
-        if self.0.uses == CommandBufferUses::Single {
-            self.0.usable = false;
+        if self.cmd_buf.uses == CommandBufferUses::Single {
+            self.cmd_buf.usable = false;
         }
-        self.0.fence.reset();
+        self.cmd_buf.fence.reset();
 
-        unsafe { Context::get_device().queue_submit(Context::get().device().main_queue.handle(), &[submit_info], self.0.fence.handle()) }
+        unsafe { Context::get_device().queue_submit(Context::get().device().main_queue.handle(), &[submit_info], self.cmd_buf.fence.handle()) }
             .expect("Failed to submit command buffer");
 
-        self.0
+        SubmittedRecording { cmd_buf: self.cmd_buf, _marker: self._marker }
     }
 }
 
-impl VkHandle for Recording {
+impl<'a> VkHandle for Recording<'a> {
     type HandleType = vk::CommandBuffer;
 
     fn handle(&self) -> Self::HandleType {
-        self.0.handle()
+        self.cmd_buf.handle()
+    }
+}
+
+pub struct SubmittedRecording<'a> {
+    cmd_buf: CommandBuffer,
+    _marker: PhantomData<&'a ()>,
+}
+
+
+impl<'a> SubmittedRecording<'a> {
+    pub fn wait(self) -> CommandBuffer {
+        self.cmd_buf.fence.wait();
+        self.cmd_buf
     }
 }
