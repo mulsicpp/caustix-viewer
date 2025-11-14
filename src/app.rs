@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString};
 
-use cvk::BufferUsage;
+use cvk::{BufferUsage};
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -47,13 +47,19 @@ impl App {
             .usage(cvk::BufferUsage::TRANSFER_SRC | cvk::BufferUsage::TRANSFER_DST)
             .data(&[0; 6])
             .build();
+        
+        let mut recording = cvk::CommandBuffer::new(cvk::CommandBufferUses::Single).start_recording();
+        {
 
-        let b2_slice = b2.mapped().unwrap();
-        println!("{:?}", b2_slice);
+            let b2_slice = b2.mapped().unwrap();
+            println!("{:?}", b2_slice);
 
-        b1.region(..).copy(b2.region(3..));
+            recording.copy_buffer(&b1, b2.region(3..));
+            
+            println!("{:?}", b2_slice);
+        }
+        recording.submit();
 
-        println!("{:?}", b2_slice);
     }
 
     fn redraw(&mut self) {}

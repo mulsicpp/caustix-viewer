@@ -52,6 +52,16 @@ where
     fn to_span(self, span: Span<T>) -> Span<T>;
 }
 
+impl<T> ToSpan<T> for Span<T> where T: SpanPrimitive {
+    fn to_span(self, span: Span<T>) -> Span<T> {
+        if self.offset + self.count <= span.count {
+            Span::new(span.offset + self.offset, self.count)
+        } else {
+            Span::invalid()
+        }
+    }
+}
+
 impl<T> ToSpan<T> for T
 where
     T: SpanPrimitive,
