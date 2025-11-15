@@ -35,9 +35,10 @@ pub fn derive_vk_handle(item: syn::ItemStruct) -> TokenStream {
         };
 
         quote! {
-                impl #impl_generics crate::handle::VkHandle for #item_ident #ty_generics #where_clause {
+                impl #impl_generics crate::core::VkHandle for #item_ident #ty_generics #where_clause {
                     type HandleType = #field_type;
 
+                    #[inline]
                     fn handle(&self) -> Self::HandleType {
                         self.#field_ident
                     }

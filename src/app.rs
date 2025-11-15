@@ -44,6 +44,15 @@ impl App {
             .stage(cvk::ShaderStage::FRAGMENT)
             .glsl_file("assets/shaders/tri_frag.glsl")
             .build();
+
+        let _image = cvk::Image::builder()
+            .extent((1280, 720))
+            .format(cvk::Format::R8G8B8A8_UNORM)
+            .usage(cvk::ImageUsage::TRANSFER_DST)
+            .memory_usage(cvk::MemoryUsage::PreferDevice)
+            .build();
+
+        dbg!(_image.extent());
     }
 
     fn redraw(&mut self) {}
