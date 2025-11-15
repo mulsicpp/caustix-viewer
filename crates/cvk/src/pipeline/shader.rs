@@ -25,7 +25,7 @@ fn to_shader_kind(stage: ShaderStage) -> shaderc::ShaderKind {
 
 use crate::Context;
 
-#[derive(cvk_macros::VkHandle, Debug, Clone)]
+#[derive(cvk_macros::VkHandle, Debug)]
 pub struct Shader {
     handle: vk::ShaderModule,
     stage: ShaderStage,
