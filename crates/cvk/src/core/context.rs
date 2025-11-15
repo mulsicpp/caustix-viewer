@@ -17,6 +17,7 @@ type ContextWriteGuard = MappedRwLockWriteGuard<'static, Context>;
 type DeviceReadGuard = MappedRwLockReadGuard<'static, ash::Device>;
 
 pub struct Context {
+    glsl_compiler: shaderc::Compiler,
     allocator: vk_mem::Allocator,
     device: Device,
     instance: Instance,
@@ -64,7 +65,10 @@ impl Context {
 
         let allocator = unsafe { vk_mem::Allocator::new(allocator_info) }.expect("Failed to create the allocator");
 
+        let glsl_compiler = shaderc::Compiler::new().expect("Failed to create GLSL compiler");
+
         *CONTEXT.write() = Some(Context {
+            glsl_compiler,
             allocator,
             device,
             instance,
@@ -111,6 +115,10 @@ impl Context {
 
     pub fn allocator(&self) -> &vk_mem::Allocator {
         &self.allocator
+    }
+
+    pub fn glsl_compiler(&self) -> &shaderc::Compiler {
+        &self.glsl_compiler
     }
 
     pub fn window(&self) -> Option<&Window> {

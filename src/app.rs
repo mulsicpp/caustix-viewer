@@ -1,6 +1,5 @@
 use std::ffi::{CStr, CString};
 
-use cvk::{BufferUsage};
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -36,30 +35,15 @@ impl App {
 
         cvk::Context::init(context_info);
 
-        let b1 = cvk::Buffer::builder()
-            .data(&[1; 6])
-            .usage(BufferUsage::TRANSFER_SRC | BufferUsage::TRANSFER_DST)
-            .memory_usage(cvk::MemoryUsage::PreferDevice)
+        let _vertex_shader = cvk::Shader::builder()
+            .stage(cvk::ShaderStage::VERTEX)
+            .glsl_file("assets/shaders/tri_vert.glsl")
             .build();
 
-        let b2 = cvk::Buffer::<i32>::builder()
-            .staging_buffer()
-            .usage(cvk::BufferUsage::TRANSFER_SRC | cvk::BufferUsage::TRANSFER_DST)
-            .data(&[0; 6])
+        let _fragment_shader = cvk::Shader::builder()
+            .stage(cvk::ShaderStage::FRAGMENT)
+            .glsl_file("assets/shaders/tri_frag.glsl")
             .build();
-        
-        let mut recording = cvk::CommandBuffer::new(cvk::CommandBufferUses::Single).start_recording();
-        {
-
-            let b2_slice = b2.mapped().unwrap();
-            println!("{:?}", b2_slice);
-
-            recording.copy_buffer(&b1, b2.region(3..));
-            
-            println!("{:?}", b2_slice);
-        }
-        recording.submit();
-
     }
 
     fn redraw(&mut self) {}

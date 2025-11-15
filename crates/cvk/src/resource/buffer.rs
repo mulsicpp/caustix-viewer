@@ -25,18 +25,22 @@ pub trait BufferRegionLike<T: Copy> where Self: Sized {
     fn span(&self) -> DeviceSpan;
     fn mapped_data_ptr(&self) -> Option<NonNull<T>>;
 
+    #[inline]
     fn offset(&self) -> vk::DeviceSize {
         self.span().offset
     }
 
+    #[inline]
     fn count(&self) -> vk::DeviceSize {
         self.span().count
     }
 
+    #[inline]
     fn size(&self) -> vk::DeviceSize {
         self.count() * size_of::<T>() as vk::DeviceSize
     }
 
+    #[inline]
     fn mapped<'a>(self) -> Option<&'a [T]> where Self: 'a {
         Some(unsafe {
             &*slice_from_raw_parts(
@@ -60,6 +64,7 @@ pub trait BufferRegionLike<T: Copy> where Self: Sized {
 }
 
 pub trait BufferRegionLikeMut<T: Copy>: BufferRegionLike<T> {
+    #[inline]
     fn mapped_mut<'a>(self) -> Option<&'a mut [T]> where Self: 'a {
         Some(unsafe {
             &mut *slice_from_raw_parts_mut(
@@ -100,18 +105,22 @@ pub struct Buffer<T: Copy = u8> {
 }
 
 impl<T: Copy> Buffer<T> {
-    pub fn count(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn count(&self) -> vk::DeviceSize {
         self.count
     }
 
-    pub fn size(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn size(&self) -> vk::DeviceSize {
         self.count * size_of::<T>() as vk::DeviceSize
     }
 
+    #[inline]
     pub fn mapped(&self) -> Option<&[T]> {
         <&Self as BufferRegionLike<T>>::mapped(self)
     }
 
+    #[inline]
     pub fn mapped_mut(&mut self) -> Option<&mut [T]> {
         <&mut Self as BufferRegionLikeMut<T>>::mapped_mut(self)
     }
@@ -155,28 +164,34 @@ impl<T: Copy> Buildable for Buffer<T> {
 }
 
 impl<T: Copy> BufferRegionLike<T> for &Buffer<T> {
+    #[inline]
     fn buffer(&self) -> vk::Buffer {
         self.handle
     }
 
+    #[inline]
     fn span(&self) -> DeviceSpan {
         DeviceSpan::new(0, self.count)
     }
 
+    #[inline]
     fn mapped_data_ptr(&self) -> Option<NonNull<T>> {
         self.mapped_data
     }
 }
 
 impl<T: Copy> BufferRegionLike<T> for &mut Buffer<T> {
+    #[inline]
     fn buffer(&self) -> vk::Buffer {
         self.handle
     }
 
+    #[inline]
     fn span(&self) -> DeviceSpan {
         DeviceSpan::new(0, self.count)
     }
 
+    #[inline]
     fn mapped_data_ptr(&self) -> Option<NonNull<T>> {
         self.mapped_data
     }
@@ -224,22 +239,27 @@ impl<'a, T: Copy> BufferRegion<'a, T> {
         buffer_region.region(span)
     }
 
-    pub fn span(&self) -> DeviceSpan {
+    #[inline]
+    pub const fn span(&self) -> DeviceSpan {
         self.span
     }
 
-    pub fn offset(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn offset(&self) -> vk::DeviceSize {
         self.span.offset
     }
 
-    pub fn count(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn count(&self) -> vk::DeviceSize {
         self.span.count
     }
 
-    pub fn size(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn size(&self) -> vk::DeviceSize {
         self.span.count * size_of::<T>() as vk::DeviceSize
     }
 
+    #[inline]
     pub fn mapped(self) -> Option<&'a [T]> {
         <Self as BufferRegionLike<T>>::mapped(self)
     }
@@ -257,23 +277,18 @@ impl<'a, T: Copy> BufferRegion<'a, T> {
     }
 }
 
-impl<T: Copy> VkHandle for BufferRegion<'_, T> {
-    type HandleType = vk::Buffer;
-
-    fn handle(&self) -> Self::HandleType {
-        self.buffer.handle
-    }
-}
-
 impl<T: Copy> BufferRegionLike<T> for BufferRegion<'_, T> {
+    #[inline]
     fn buffer(&self) -> vk::Buffer {
         self.buffer.handle
     }
 
+    #[inline]
     fn span(&self) -> DeviceSpan {
         self.span
     }
 
+    #[inline]
     fn mapped_data_ptr(&self) -> Option<NonNull<T>> {
         self.buffer.mapped_data
     }
@@ -312,22 +327,27 @@ impl<'a, T: Copy> BufferRegionMut<'a, T> {
         buffer_region.region_mut(span)
     }
 
-    pub fn span(&self) -> DeviceSpan {
+    #[inline]
+    pub const fn span(&self) -> DeviceSpan {
         self.span
     }
 
-    pub fn offset(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn offset(&self) -> vk::DeviceSize {
         self.span.offset
     }
 
-    pub fn count(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn count(&self) -> vk::DeviceSize {
         self.span.count
     }
 
-    pub fn size(&self) -> vk::DeviceSize {
+    #[inline]
+    pub const fn size(&self) -> vk::DeviceSize {
         self.span.count * size_of::<T>() as vk::DeviceSize
     }
 
+    #[inline]
     pub fn mapped(self) -> Option<&'a [T]> {
         <Self as BufferRegionLike<T>>::mapped(self)
     }
@@ -345,23 +365,18 @@ impl<'a, T: Copy> BufferRegionMut<'a, T> {
     }
 }
 
-impl<T: Copy> VkHandle for BufferRegionMut<'_, T> {
-    type HandleType = vk::Buffer;
-
-    fn handle(&self) -> Self::HandleType {
-        self.buffer.handle
-    }
-}
-
 impl<T: Copy> BufferRegionLike<T> for BufferRegionMut<'_, T> {
+    #[inline]
     fn buffer(&self) -> vk::Buffer {
         self.buffer.handle
     }
 
+    #[inline]
     fn span(&self) -> DeviceSpan {
         self.span
     }
 
+    #[inline]
     fn mapped_data_ptr(&self) -> Option<NonNull<T>> {
         self.buffer.mapped_data
     }
@@ -530,6 +545,7 @@ impl<'a, T: Copy> Build for BufferBuilder<'a, T> {
 pub struct BufferCopyRange(AnyRange<vk::DeviceSize>, AnyRange<vk::DeviceSize>);
 
 impl BufferCopyRange {
+    #[inline]
     pub fn new(
         src_range: impl Into<AnyRange<vk::DeviceSize>>,
         dst_range: impl Into<AnyRange<vk::DeviceSize>>,
@@ -537,6 +553,7 @@ impl BufferCopyRange {
         Self(src_range.into(), dst_range.into())
     }
 
+    #[inline]
     pub fn to_vk<T: Copy>(
         &self,
         src_span: Span<vk::DeviceSize>,
