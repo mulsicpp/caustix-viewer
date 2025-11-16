@@ -55,7 +55,9 @@ pub fn derive_parameters(item: &syn::ItemStruct) -> TokenStream {
                         match field_attr.parse_args::<syn::Ident>() {
                             Ok(ident) => Some((element_type, ident.to_token_stream())),
                             Err(_) => {
-                                TokenStream::from_str(format!("push_{}", field_ident).as_str()).ok().map(|id| (element_type, id))
+                                TokenStream::from_str(format!("push_{}", field_ident).as_str())
+                                    .ok()
+                                    .map(|id| (element_type, id))
                             }
                         }
                     } else {
@@ -93,6 +95,43 @@ pub fn derive_parameters(item: &syn::ItemStruct) -> TokenStream {
     quote! {
         impl #impl_generics #item_ident #ty_generics #where_clause {
             #(#field_functions)*
+        }
+    }
+}
+
+pub fn derive_share(item: &syn::Item) -> TokenStream {
+    let item_ident;
+    let item_generics;
+
+    match item {
+        syn::Item::Enum(item) => {
+            item_ident = &item.ident;
+            item_generics = &item.generics;
+        }
+        syn::Item::Struct(item) => {
+            item_ident = &item.ident;
+            item_generics = &item.generics;
+        }
+        _ => return quote! { compile_error!("Item needs to be a struct or enum") },
+    }
+
+    let (impl_generics, ty_generics, where_clause) = item_generics.split_for_impl();
+
+    quote! {
+        impl #impl_generics ::utils::Share for #item_ident #ty_generics #where_clause {
+            type Internal = #item_ident #ty_generics;
+
+            #[inline]
+            fn share(self) -> ::utils::Shared<Self::Internal> {
+                ::utils::Shared::new(self)
+            }
+        }
+
+        impl #impl_generics #item_ident #ty_generics #where_clause {
+            #[inline]
+            pub fn share(self) -> ::utils::Shared<#item_ident #ty_generics> {
+                ::utils::Shared::new(self)
+            }
         }
     }
 }

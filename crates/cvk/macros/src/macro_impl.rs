@@ -43,6 +43,13 @@ pub fn derive_vk_handle(item: syn::ItemStruct) -> TokenStream {
                         self.#field_ident
                     }
                 }
+
+                impl #impl_generics #item_ident #ty_generics #where_clause {
+                    #[inline]
+                    pub fn handle(&self) -> #field_type {
+                        self.#field_ident
+                    }
+                }
             }
     } else {
         quote! {

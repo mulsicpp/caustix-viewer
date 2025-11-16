@@ -12,3 +12,13 @@ pub fn derive_parameters(input: TokenStream) -> TokenStream {
         Err(_) => quote! { compile_error!("Item needs to be a struct") }.into(),
     } 
 }
+
+#[proc_macro_derive(Share)]
+pub fn derive_share(input: TokenStream) -> TokenStream {
+    let parse_result = syn::parse::<syn::Item>(input);
+
+    match parse_result {
+        Ok(item) => macro_impl::derive_share(&item).into(),
+        Err(_) => quote! { compile_error!("Item needs to be a struct") }.into(),
+    } 
+}

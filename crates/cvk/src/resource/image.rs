@@ -6,7 +6,7 @@ use crate::{Context, Extent2D, MemoryUsage};
 
 pub use vk::{ImageLayout, ImageTiling, ImageUsageFlags as ImageUsage};
 
-#[derive(cvk_macros::VkHandle, Debug)]
+#[derive(cvk_macros::VkHandle, utils::Share, Debug)]
 pub struct Image {
     handle: vk::Image,
     allocation: vk_mem::Allocation,

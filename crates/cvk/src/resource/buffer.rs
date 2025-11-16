@@ -95,7 +95,7 @@ where
 
 // --------------------- Buffer ---------------------
 
-#[derive(Debug, cvk_macros::VkHandle)]
+#[derive(Debug, cvk_macros::VkHandle, utils::Share)]
 pub struct Buffer<T: Copy = u8> {
     handle: vk::Buffer,
     allocation: vk_mem::Allocation,

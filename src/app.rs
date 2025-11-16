@@ -53,6 +53,13 @@ impl App {
             .build();
 
         dbg!(_image.extent());
+
+        let shared_image = _image.share();
+
+        let shared_image2 = shared_image.clone();
+
+        dbg!(&shared_image);
+        dbg!(&shared_image2);
     }
 
     fn redraw(&mut self) {}
