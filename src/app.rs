@@ -45,21 +45,23 @@ impl App {
             .glsl_file("assets/shaders/tri_frag.glsl")
             .build();
 
-        let _image = cvk::Image::builder()
-            .extent((1280, 720))
+        let image = cvk::Image::builder()
+            .extent_2d((1280, 720))
             .format(cvk::Format::R8G8B8A8_UNORM)
-            .usage(cvk::ImageUsage::TRANSFER_DST)
+            .usage(cvk::ImageUsage::COLOR_ATTACHMENT)
             .memory_usage(cvk::MemoryUsage::PreferDevice)
             .build();
 
-        dbg!(_image.extent());
+        dbg!(image.extent());
 
-        let shared_image = _image.share();
-
-        let shared_image2 = shared_image.clone();
+        let shared_image = image.share();
 
         dbg!(&shared_image);
-        dbg!(&shared_image2);
+
+        let subresource = cvk::ImageSubresource::default().aspect(cvk::ImageAspect::COLOR);
+        let image_view = cvk::ImageView::new(&shared_image, &subresource);
+
+        dbg!(&image_view);
     }
 
     fn redraw(&mut self) {}

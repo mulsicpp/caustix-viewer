@@ -152,6 +152,7 @@ where
 #[derive(Clone, Debug)]
 pub enum AnyRange<T: SpanPrimitive> {
     Value(T),
+    Span(Span<T>),
     Range(Range<T>),
     RangeInclusive(RangeInclusive<T>),
     RangeTo(RangeTo<T>),
@@ -164,6 +165,7 @@ impl<T: SpanPrimitive> ToSpan<T> for AnyRange<T> {
     fn to_span(self, span: Span<T>) -> Span<T> {
         match self {
             AnyRange::Value(value) => value.to_span(span),
+            AnyRange::Span(this_span) => this_span.to_span(span),
             AnyRange::Range(range) => range.to_span(span),
             AnyRange::RangeInclusive(range_inclusive) => range_inclusive.to_span(span),
             AnyRange::RangeTo(range_to) => range_to.to_span(span),
@@ -177,6 +179,12 @@ impl<T: SpanPrimitive> ToSpan<T> for AnyRange<T> {
 impl<T: SpanPrimitive> From<T> for AnyRange<T> {
     fn from(value: T) -> Self {
         Self::Value(value)
+    }
+}
+
+impl<T: SpanPrimitive> From<Span<T>> for AnyRange<T> {
+    fn from(value: Span<T>) -> Self {
+        Self::Span(value)
     }
 }
 
