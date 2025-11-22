@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 
+use cvk::SwapchainInfo;
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -26,12 +27,17 @@ impl App {
 
         let window = event_loop.create_window(window_attribs).unwrap();
 
+        let swapchain_info = SwapchainInfo::default()
+            .add_image_usage(cvk::ImageUsage::COLOR_ATTACHMENT)
+            .push_preferred_format(cvk::Format::R8G8B8A8_SRGB);
+
         let context_info = cvk::ContextInfo::default()
             .app_name(self.name.clone())
             .engine_name(self.engine_name.clone())
             .version(cvk::ApiVersion::V1_2)
             .debugging(cfg!(debug_assertions))
-            .window(window);
+            .window(window)
+            .swapchain_info(swapchain_info);
 
         cvk::Context::init(context_info);
 

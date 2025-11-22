@@ -1,12 +1,14 @@
 pub mod command_buffer;
 pub mod context;
 pub mod extent;
+pub mod swapchain;
 mod device;
 mod instance;
 
 pub use command_buffer::*;
 pub use context::*;
 pub use extent::*;
+pub use swapchain::*;
 
 
 

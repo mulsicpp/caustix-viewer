@@ -2,7 +2,7 @@ use ash::vk;
 use utils::{Build, Buildable};
 use vk_mem::Alloc;
 
-use crate::{Context, Extent2D, Extent3D, Format, MemoryUsage};
+use crate::{Context, Extent2D, Extent3D, Format, MemoryUsage, Swapchain};
 
 pub type ImageLayout = vk::ImageLayout;
 pub type ImageTiling = vk::ImageTiling;
@@ -12,8 +12,8 @@ pub type ImageFlags = vk::ImageCreateFlags;
 
 #[derive(cvk_macros::VkHandle, utils::Share, Debug)]
 pub struct Image {
-    handle: vk::Image,
-    allocation: vk_mem::Allocation,
+    pub(crate) handle: vk::Image,
+    allocation: Option<vk_mem::Allocation>,
 
     format: Format,
     extent: Extent3D,
@@ -26,6 +26,19 @@ pub struct Image {
 }
 
 impl Image {
+    pub(crate) fn swapchain_image(swapchain: &Swapchain, handle: vk::Image) -> Self {
+        Self {
+            handle,
+            allocation: None,
+            format: swapchain.format().format,
+            extent: swapchain.extent().into(),
+            image_type: ImageType::TYPE_2D,
+            array_layers: 1,
+            mip_levels: 1,
+            flags: ImageFlags::empty(),
+        }
+    }
+
     #[inline]
     pub const fn format(&self) -> Format {
         self.format
@@ -60,9 +73,11 @@ impl Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            Context::get()
-                .allocator()
-                .destroy_image(self.handle, &mut self.allocation);
+            if let Some(mut allocation) = self.allocation {
+                Context::get()
+                    .allocator()
+                    .destroy_image(self.handle, &mut allocation);
+            }
         }
     }
 }
@@ -171,7 +186,7 @@ impl Build for ImageBuilder {
 
         Image {
             handle,
-            allocation,
+            allocation: Some(allocation),
 
             format: self.format,
             image_type: self.image_type,

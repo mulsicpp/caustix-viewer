@@ -1,6 +1,8 @@
+use crate::Swapchain;
+use crate::SwapchainInfo;
+
 use super::device::*;
 use super::instance::*;
-
 use parking_lot::{
     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
@@ -18,6 +20,7 @@ type DeviceReadGuard = MappedRwLockReadGuard<'static, ash::Device>;
 
 pub struct Context {
     glsl_compiler: shaderc::Compiler,
+    swapchain: Option<Swapchain>,
     allocator: vk_mem::Allocator,
     device: Device,
     instance: Instance,
@@ -39,6 +42,7 @@ pub struct ContextInfo {
     pub version: ApiVersion,
     pub debugging: bool,
     pub window: Option<Window>,
+    pub swapchain_info: Option<SwapchainInfo>,
 }
 
 impl Default for ContextInfo {
@@ -49,6 +53,7 @@ impl Default for ContextInfo {
             version: ApiVersion::V1_3,
             debugging: false,
             window: None,
+            swapchain_info: None,
         }
     }
 }
@@ -57,17 +62,39 @@ static CONTEXT: RwLock<Option<Context>> = RwLock::new(None);
 
 impl Context {
     pub fn init(info: ContextInfo) {
+        let swapchain_info = info.swapchain_info.clone();
         let instance = Instance::new(info);
 
         let device = Device::new(&instance);
 
-        let allocator_info = vk_mem::AllocatorCreateInfo::new(&instance.instance, &device.device, device.physical_device);
+        let allocator_info = vk_mem::AllocatorCreateInfo::new(
+            &instance.instance,
+            &device.device,
+            device.physical_device,
+        );
 
-        let allocator = unsafe { vk_mem::Allocator::new(allocator_info) }.expect("Failed to create the allocator");
+        let swapchain = if let Some(info) = swapchain_info.as_ref() {
+            let surface = instance
+                .surface
+                .as_ref()
+                .expect("Swapchain was requested, but no surface is present");
+
+            Some(Swapchain::new(
+                &device,
+                surface,
+                info,
+            ))
+        } else {
+            None
+        };
+
+        let allocator = unsafe { vk_mem::Allocator::new(allocator_info) }
+            .expect("Failed to create the allocator");
 
         let glsl_compiler = shaderc::Compiler::new().expect("Failed to create GLSL compiler");
 
         *CONTEXT.write() = Some(Context {
+            swapchain,
             glsl_compiler,
             allocator,
             device,
@@ -98,11 +125,9 @@ impl Context {
     pub fn try_get_mut() -> Option<ContextWriteGuard> {
         RwLockWriteGuard::try_map(CONTEXT.write(), |context| context.as_mut()).ok()
     }
-    
+
     pub fn get_device() -> DeviceReadGuard {
-        MappedRwLockReadGuard::map(Self::get(), |context| {
-            &context.device.device
-        })
+        MappedRwLockReadGuard::map(Self::get(), |context| &context.device.device)
     }
 
     pub fn instance(&self) -> &Instance {
@@ -127,5 +152,18 @@ impl Context {
 
     pub fn window_mut(&mut self) -> Option<&mut Window> {
         Some(&mut self.instance.surface.as_mut()?.window)
+    }
+}
+
+impl Drop for Context {
+    fn drop(&mut self) {
+        self.swapchain.as_ref().and_then(|swapchain| unsafe {
+            self.device
+                .extensions
+                .swapchain
+                .as_ref()?
+                .destroy_swapchain(swapchain.handle(), None);
+            Some(())
+        });
     }
 }
