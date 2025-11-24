@@ -146,6 +146,10 @@ impl Context {
         &self.glsl_compiler
     }
 
+    pub fn swapchain(&self) -> Option<&Swapchain> {
+        self.swapchain.as_ref()
+    }
+
     pub fn window(&self) -> Option<&Window> {
         Some(&self.instance.surface.as_ref()?.window)
     }

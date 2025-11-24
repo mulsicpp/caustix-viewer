@@ -9,6 +9,9 @@ license = "GPL-3.0"
 winit = { workspace = true }
 cvk = { path = "crates/cvk" }
 utils = { path = "crates/utils" }
+egui = "0.33.2"
+egui-winit = "0.33.2"
+egui-ash-renderer = "0.10.0"
 
 [workspace]
 members = [

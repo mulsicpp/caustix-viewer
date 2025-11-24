@@ -13,9 +13,15 @@ use winit::{
 const APP_NAME: &'static CStr = c"Caustix Viewer";
 const ENGINE_NAME: &'static CStr = c"Caustix";
 
+struct AppData {
+    _render_pass: utils::Shared<cvk::RenderPass>,
+}
+
 pub struct App {
     name: CString,
     engine_name: CString,
+
+    app_data: Option<AppData>,
 }
 
 impl App {
@@ -68,6 +74,13 @@ impl App {
         let image_view = cvk::ImageView::new(&shared_image, &subresource);
 
         dbg!(&image_view);
+
+        let render_pass = cvk::RenderPass::builder()
+            .push_attachment(cvk::Attachment::swapchain())
+            .build()
+            .share();
+
+        self.app_data = Some(AppData { _render_pass: render_pass });
     }
 
     fn redraw(&mut self) {}
@@ -83,12 +96,15 @@ impl App {
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
 
-        let mut app = App {
-            name: APP_NAME.into(),
-            engine_name: ENGINE_NAME.into(),
-        };
+        {
+            let mut app = App {
+                name: APP_NAME.into(),
+                engine_name: ENGINE_NAME.into(),
+                app_data: None,
+            };
 
-        event_loop.run_app(&mut app).unwrap();
+            event_loop.run_app(&mut app).unwrap();
+        }
 
         cvk::Context::destroy();
     }
