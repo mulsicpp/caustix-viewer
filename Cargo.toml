@@ -7,6 +7,7 @@ license = "GPL-3.0"
 
 [dependencies]
 winit = { workspace = true }
+ash = { workspace = true }
 cvk = { path = "crates/cvk" }
 utils = { path = "crates/utils" }
 egui = "0.33.2"
@@ -23,6 +24,7 @@ members = [
 
 [workspace.dependencies]
 winit = "0.30.12"
+ash = "0.38.0"
 parking_lot = "0.12.5"
 
 proc-macro2 = "1.0"

@@ -13,7 +13,7 @@ pub type ImageFlags = vk::ImageCreateFlags;
 #[derive(cvk_macros::VkHandle, utils::Share, Debug)]
 pub struct Image {
     pub(crate) handle: vk::Image,
-    allocation: Option<vk_mem::Allocation>,
+    pub(super) allocation: Option<vk_mem::Allocation>,
 
     format: Format,
     extent: Extent3D,

@@ -167,6 +167,9 @@ impl Drop for Context {
                 .swapchain
                 .as_ref()?
                 .destroy_swapchain(swapchain.handle(), None);
+            for image_view in swapchain.image_views() {
+                self.device.device.destroy_image_view(image_view.handle(), None);
+            }
             Some(())
         });
     }

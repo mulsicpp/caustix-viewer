@@ -258,6 +258,7 @@ version = "0.1.0"
 name = "caustix-viewer"
 version = "0.1.0"
 dependencies = [
+ "ash",
  "cvk",
  "egui",
  "egui-ash-renderer",

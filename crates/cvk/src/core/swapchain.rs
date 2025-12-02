@@ -1,10 +1,11 @@
-use std::usize;
+use std::{u64, usize};
 
 use ash::vk;
 use winit::dpi::PhysicalSize;
 
 use crate::{
-    Extent2D, Format, Image, ImageUsage,
+    Context, Extent2D, Fence, Format, Image, ImageAspect, ImageSubresource, ImageUsage, ImageView,
+    ImageViewType, Semaphore,
     core::{device::Device, instance::Surface},
 };
 
@@ -16,12 +17,14 @@ pub type ColorSpace = vk::ColorSpaceKHR;
 pub struct Swapchain {
     handle: vk::SwapchainKHR,
     images: Vec<utils::Shared<Image>>,
+    image_views: Vec<ImageView>,
 
     surface_format: SurfaceFormat,
     present_mode: PresentMode,
     extent: Extent2D,
     image_usage: ImageUsage,
 }
+
 
 impl Swapchain {
     pub fn new(device: &Device, surface: &Surface, info: &SwapchainInfo) -> Self {
@@ -36,6 +39,7 @@ impl Swapchain {
         let mut swapchain = Self {
             handle: vk::SwapchainKHR::null(),
             images: vec![],
+            image_views: vec![],
             surface_format,
             present_mode,
             extent: (0, 0).into(),
@@ -129,28 +133,17 @@ impl Swapchain {
                 .expect("Failed to create swapchain");
             self.images = swapchain_fns
                 .get_swapchain_images(self.handle)
-                .expect("Failed to get swapchain images").into_iter().map(|image| Image::swapchain_image(self, image).share()).collect();
+                .expect("Failed to get swapchain images")
+                .into_iter()
+                .map(|image| Image::swapchain_image(self, image).share())
+                .collect();
         }
-    }
-
-    #[inline]
-    pub const fn format(&self) -> SurfaceFormat {
-        self.surface_format
-    }
-
-    #[inline]
-    pub const fn extent(&self) -> Extent2D {
-        self.extent
-    }
-
-    #[inline]
-    pub const fn image_usage(&self) -> ImageUsage {
-        self.image_usage
-    }
-
-    #[inline]
-    pub const fn present_mode(&self) -> PresentMode {
-        self.present_mode
+        let subresource = ImageSubresource::default().aspect(ImageAspect::COLOR);
+        self.image_views = self
+            .images
+            .iter()
+            .map(|image| ImageView::new_with_type_from_device(&device.device, image, ImageViewType::TYPE_2D, &subresource))
+            .collect();
     }
 
     fn get_surface_format(
@@ -198,6 +191,69 @@ impl Swapchain {
         } else {
             PresentMode::FIFO
         }
+    }
+
+    #[inline]
+    pub const fn format(&self) -> SurfaceFormat {
+        self.surface_format
+    }
+
+    #[inline]
+    pub const fn extent(&self) -> Extent2D {
+        self.extent
+    }
+
+    #[inline]
+    pub const fn image_usage(&self) -> ImageUsage {
+        self.image_usage
+    }
+
+    #[inline]
+    pub const fn present_mode(&self) -> PresentMode {
+        self.present_mode
+    }
+
+    #[inline]
+    pub const fn images(&self) -> &Vec<utils::Shared<Image>> {
+        &self.images
+    }
+
+    #[inline]
+    pub fn image_at(&self, idx: usize) -> &utils::Shared<Image> {
+        &self.images[idx]
+    }
+
+    #[inline]
+    pub const fn image_views(&self) -> &Vec<ImageView> {
+        &self.image_views
+    }
+
+    #[inline]
+    pub fn image_view_at(&self, idx: usize) -> &ImageView {
+        &self.image_views[idx]
+    }
+
+    pub fn aquire_next_image(
+        &self,
+        semaphore: Option<&Semaphore>,
+        fence: Option<&Fence>,
+    ) -> (u32, bool) {
+        let context = Context::get();
+        let swapchain_fns = context
+            .device()
+            .extensions
+            .swapchain
+            .as_ref()
+            .expect("Swapchain extension not present");
+
+        unsafe {
+            swapchain_fns.acquire_next_image(
+                self.handle,
+                u64::MAX,
+                semaphore.map(Semaphore::handle).unwrap_or(vk::Semaphore::null()),
+                fence.map(Fence::handle).unwrap_or(vk::Fence::null()),
+            )
+        }.expect("Failed to aquire next image from swapchain")
     }
 }
 

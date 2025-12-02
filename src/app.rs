@@ -10,11 +10,13 @@ use winit::{
     window::{Window, WindowId},
 };
 
+use crate::UIContext;
+
 const APP_NAME: &'static CStr = c"Caustix Viewer";
 const ENGINE_NAME: &'static CStr = c"Caustix";
 
 struct AppData {
-    _render_pass: utils::Shared<cvk::RenderPass>,
+    _ui_context: UIContext,
 }
 
 pub struct App {
@@ -75,21 +77,30 @@ impl App {
 
         dbg!(&image_view);
 
-        let render_pass = cvk::RenderPass::builder()
-            .push_attachment(cvk::Attachment::swapchain())
-            .build()
-            .share();
-
-        self.app_data = Some(AppData { _render_pass: render_pass });
+        self.app_data = Some(AppData {
+            _ui_context: UIContext::new(),
+        });
     }
 
     fn redraw(&mut self) {}
 
-    fn handle_event(&mut self, event: WindowEvent, _event_loop: &ActiveEventLoop) {
-        // println!("event: {:#?}", event);
-        match event {
-            _ => (),
-        }
+    fn handle_event(&mut self, _event: WindowEvent, _event_loop: &ActiveEventLoop) {
+        /*
+        let ui_context = match self.app_data.as_mut() {
+            Some(app_data) => &mut app_data.ui_context,
+            None => return,
+        };
+
+        let cvk_context = Context::get();
+
+        let window = match cvk_context.window() {
+            Some(window) => window,
+            None => return
+        };
+
+        let _ = ui_context.winit_state.on_window_event(window, &event);
+
+        */
     }
 
     pub fn run() {

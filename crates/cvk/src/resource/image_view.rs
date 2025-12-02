@@ -82,6 +82,15 @@ impl ImageView {
         view_type: ImageViewType,
         subresource: &ImageSubresource,
     ) -> Self {
+        Self::new_with_type_from_device(&*Context::get_device(), image, view_type, subresource)
+    }
+
+    pub fn new_with_type_from_device(
+        device: &ash::Device,
+        image: impl utils::Share<Internal = Image>,
+        view_type: ImageViewType,
+        subresource: &ImageSubresource,
+    ) -> Self {
         let image = image.share();
 
         let info = vk::ImageViewCreateInfo::default()
@@ -90,8 +99,8 @@ impl ImageView {
             .format(image.format())
             .subresource_range(subresource.to_vk(&*image));
 
-        let handle = unsafe { Context::get_device().create_image_view(&info, None) }
-            .expect("Failed to create image view");
+        let handle =
+            unsafe { device.create_image_view(&info, None) }.expect("Failed to create image view");
 
         Self { handle, image }
     }
@@ -104,8 +113,10 @@ impl ImageView {
 
 impl Drop for ImageView {
     fn drop(&mut self) {
-        unsafe {
-            Context::get_device().destroy_image_view(self.handle, None);
+        if self.image.allocation.is_some() {
+            unsafe {
+                Context::get_device().destroy_image_view(self.handle, None);
+            }
         }
     }
 }

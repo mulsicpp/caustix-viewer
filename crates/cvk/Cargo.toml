@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 winit = { workspace = true }
+ash = { workspace = true }
 raw-window-handle = "0.6.2"
-ash = "0.38.0"
 vk-mem = "0.5.0"
 ash-window = "0.13.0"
 shaderc = "0.10.1"
