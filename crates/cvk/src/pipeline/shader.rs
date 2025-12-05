@@ -36,6 +36,14 @@ impl Shader {
     pub const fn stage(&self) -> ShaderStage {
         self.stage
     }
+
+    #[inline]
+    pub fn to_vk(&'_ self) -> vk::PipelineShaderStageCreateInfo<'_> {
+        vk::PipelineShaderStageCreateInfo::default()
+            .module(self.handle)
+            .stage(self.stage)
+            .name(c"main")
+    }
 }
 
 impl Drop for Shader {

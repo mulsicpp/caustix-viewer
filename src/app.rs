@@ -1,6 +1,5 @@
 use std::ffi::{CStr, CString};
 
-use cvk::SwapchainInfo;
 use utils::{Build, Buildable};
 use winit::{
     application::ApplicationHandler,
@@ -17,6 +16,8 @@ const ENGINE_NAME: &'static CStr = c"Caustix";
 
 struct AppData {
     _ui_context: UIContext,
+    _pipeline: cvk::GraphicsPipeline,
+    _render_pass: utils::Shared<cvk::RenderPass>
 }
 
 pub struct App {
@@ -35,7 +36,7 @@ impl App {
 
         let window = event_loop.create_window(window_attribs).unwrap();
 
-        let swapchain_info = SwapchainInfo::default()
+        let swapchain_info = cvk::SwapchainInfo::default()
             .add_image_usage(cvk::ImageUsage::COLOR_ATTACHMENT)
             .push_preferred_format(cvk::Format::R8G8B8A8_SRGB);
 
@@ -49,12 +50,12 @@ impl App {
 
         cvk::Context::init(context_info);
 
-        let _vertex_shader = cvk::Shader::builder()
+        let vertex_shader = cvk::Shader::builder()
             .stage(cvk::ShaderStage::VERTEX)
             .glsl_file("assets/shaders/tri_vert.glsl")
             .build();
 
-        let _fragment_shader = cvk::Shader::builder()
+        let fragment_shader = cvk::Shader::builder()
             .stage(cvk::ShaderStage::FRAGMENT)
             .glsl_file("assets/shaders/tri_frag.glsl")
             .build();
@@ -77,12 +78,28 @@ impl App {
 
         dbg!(&image_view);
 
+        let render_pass = cvk::RenderPass::builder()
+            .push_attachment(cvk::Attachment::swapchain())
+            .build().share();
+
+        let layout = cvk::PipelineLayout::build();
+
+        let pipeline = cvk::GraphicsPipeline::builder()
+            .push_shader(vertex_shader)
+            .push_shader(fragment_shader)
+            .render_pass(&render_pass)
+            .layout(layout)
+            .build();
+
         self.app_data = Some(AppData {
             _ui_context: UIContext::new(),
+            _pipeline: pipeline,
+            _render_pass: render_pass
         });
     }
 
-    fn redraw(&mut self) {}
+    fn redraw(&mut self) {
+    }
 
     fn handle_event(&mut self, _event: WindowEvent, _event_loop: &ActiveEventLoop) {
         /*
